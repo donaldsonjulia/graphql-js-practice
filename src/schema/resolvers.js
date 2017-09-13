@@ -17,10 +17,28 @@ function assertValidLink ({url}) {
   }
 }
 
+
+function buildFilters({OR = [], description_contains, url_contains}) {
+  const filter = (description_contains || url_contains) ? {} : null;
+  if (description_contains) {
+    filter.description = {$regex: `.*${description_contains}.*`};
+  }
+  if (url_contains) {
+    filter.url = {$regex: `.*${url_contains}.*`};
+  }
+
+  let filters = filter ? [filter] : [];
+  for (let i = 0; i < OR.length; i++) {
+    filters = filters.concat(buildFilters(OR[i]));
+  }
+  return filters;
+}
+
 module.exports = {
   Query: {
-    allLinks: async (root, data, {mongo: {Links}}) => {  //the context object specified in the call to graphqlExpress is the third argument passed down to each resolver
-      return await Links.find({}).toArray(); //call MongoDB's find function in the Links collection, then turn into array
+    allLinks: async (root, {filter}, {mongo: {Links, Users}}) => {
+      let query = filter ? {$or: buildFilters(filter)} : {};
+      return await Links.find(query).toArray();
     },
   },
   Mutation: {
